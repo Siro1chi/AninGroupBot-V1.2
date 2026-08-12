@@ -109,22 +109,29 @@
         <div class="empty-state">Синхронизация с сервером...</div>
     </div>
 
-    <script>
-        // Инициализируем Telegram WebApp API
-        const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand();
+        <script>
+        // Объявляем глобальную переменную для Telegram WebApp
+        let tg = null;
 
-        // Запрашиваем данные напрямую у бэкенда через безопасный fetch
+        // Главная функция отрисовки приложения
         async function renderApp() {
+            // Безопасно инициализируем Telegram API, когда всё точно загрузилось
+            if (window.Telegram && window.Telegram.WebApp) {
+                tg = window.Telegram.WebApp;
+                tg.ready();
+                tg.expand();
+            } else {
+                console.log("Mini App запущен вне Telegram или скрипт еще загружается");
+            }
+
             const listDiv = document.getElementById('rooms-list');
             try {
-                // Используем правильный абсолютный адрес вашего API
+                // Запрашиваем список комнат по абсолютному адресу
                 const response = await fetch('https://aningroupbot-v1-2.onrender.com/api/get_rooms');
                 if (!response.ok) throw new Error("Ошибка получения списка");
                 
                 const rooms = await response.json();
-                listDiv.innerHTML = ''; // Очищаем экран от загрузки
+                listDiv.innerHTML = ''; // Очищаем экран от надписи синхронизации
 
                 if (!rooms || rooms.length === 0) {
                     listDiv.innerHTML = '<div class="empty-state">Активных чатов пока нет.<br>Создайте первый через команды бота!</div>';
@@ -146,14 +153,20 @@
 
             } catch (error) {
                 listDiv.innerHTML = `<div class="empty-state" style="color:var(--tg-theme-destructive-text-color, #ff3b30);">❌ Ошибка соединения с ботом.</div>`;
+                console.error(error);
             }
         }
 
         // Функция входа в комнату
         async function joinRoom(roomName) {
-            const user = tg.initDataUnsafe?.user;
+            // Если tg не определился, пробуем вытащить его еще раз на лету
+            if (!tg && window.Telegram && window.Telegram.WebApp) {
+                tg = window.Telegram.WebApp;
+            }
+
+            const user = tg?.initDataUnsafe?.user;
             if (!user || !user.id) {
-                alert("Ошибка авторизации Telegram.");
+                alert("Ошибка авторизации Telegram. Попробуйте войти через текстовую команду.");
                 return;
             }
 
@@ -166,7 +179,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    tg.close(); // Закрываем шторку, бот пришлет сообщение в чат
+                    tg?.close(); // Закрываем Mini App
                 } else {
                     alert(result.error);
                 }
@@ -175,7 +188,7 @@
             }
         }
 
-        // Стартуем отрисовку сразу после загрузки страницы
+        // Запускаем всё строго после того, как браузер полностью скачал и собрал страницу
         window.onload = renderApp;
     </script>
 </body>
