@@ -448,7 +448,7 @@ async def handle_chat_message(message: Message):
     if tasks:
         await asyncio.gather(*tasks, return_exceptions=True)
 
-# ========== Веб-сервер API и Запуск ==========
+# ========== Веб-сервер API и Запуск (ИСПРАВЛЕННЫЙ) ==========
 async def health_check(request):
     return web.Response(text="OK")
 
@@ -456,11 +456,32 @@ async def get_rooms_api(request):
     async with lock:
         data = []
         for rid, r in rooms.items():
-            data.append({"id": rid, "name": r["name"], "has_password": r["password_hash"] is not None, "members_count": len(r["members"])})
-    return web.json_response(data)
+            data.append({
+                "id": rid, 
+                "name": r["name"], 
+                "has_password": r["password_hash"] is not None, 
+                "members_count": len(r["members"])
+            })
+            
+    # Добавляем CORS-заголовки безопасности, чтобы браузер Telegram не блокировал JSON
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+    }
+    return web.json_response(data, headers=headers)
 
-# НОВЫЙ ЭНДПОИНТ: Обработка входа через веб-интерфейс Mini App
 async def join_room_api(request):
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+    }
+    
+    # Обработка предзапроса браузера (CORS Preflight)
+    if request.method == "OPTIONS":
+        return web.Response(headers=headers)
+        
     try:
         body = await request.json()
         user_id = int(body.get("user_id"))
@@ -469,16 +490,15 @@ async def join_room_api(request):
         async with lock:
             target = find_room_by_name(room_name)
             if not target:
-                return web.json_response({"success": False, "error": f"Комната '{room_name}' не найдена"})
+                return web.json_response({"success": False, "error": f"Комната '{room_name}' не найдена"}, headers=headers)
             
             rid, room = target
-            # Если у комнаты есть пароль, через простой список пускать нельзя (нужно слать в чат)
             if room["password_hash"]:
                 try:
-                    await bot.send_message(user_id, f"🔒 Комната '{room_name}' защищена паролем. Войдите через команду чата:\n`/join {room_name} <пароль>`", parse_mode="Markdown")
+                    await bot.send_message(user_id, f"🔒 Комната '{room_name}' защищена паролем. Войдите через чат:\n`/join {room_name} <пароль>`", parse_mode="Markdown")
                 except Exception:
                     pass
-                return web.json_response({"success": False, "error": "Эта комната под паролем. Инструкция отправлена в бот."})
+                return web.json_response({"success": False, "error": "Эта комната под паролем. Инструкция отправлена в бот."}, headers=headers)
 
             if user_id in user_room and user_room[user_id] != rid:
                 await remove_user_from_members(user_id, user_room[user_id])
@@ -491,9 +511,9 @@ async def join_room_api(request):
         except Exception:
             pass
             
-        return web.json_response({"success": True})
+        return web.json_response({"success": True}, headers=headers)
     except Exception as e:
-        return web.json_response({"success": False, "error": str(e)})
+        return web.json_response({"success": False, "error": str(e)}, headers=headers)
 
 async def webapp_page(request):
     try:
@@ -509,7 +529,8 @@ async def start_web_server():
     app.router.add_get('/health', health_check)
     app.router.add_get('/webapp', webapp_page)
     app.router.add_get('/api/get_rooms', get_rooms_api)
-    app.router.add_post('/api/join_room', join_room_api) # Регистрируем POST эндпоинт
+    app.router.add_post('/api/join_room', join_room_api)
+    app.router.add_options('/api/join_room', join_room_api) # Хэндлер для CORS
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, '0.0.0.0', PORT)
