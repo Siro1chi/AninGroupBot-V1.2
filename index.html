@@ -4,181 +4,156 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Управление комнатами</title>
+    <!-- Официальный скрипт Telegram Mini Apps -->
     <script src="https://telegram.org"></script>
     <style>
-    :root {
-        --bg-color: var(--tg-theme-bg-color, #ffffff);
-        --text-color: var(--tg-theme-text-color, #222222);
-        --hint-color: var(--tg-theme-hint-color, #8e8e93);
-        --link-color: var(--tg-theme-link-color, #2481cc);
-        --button-color: var(--tg-theme-button-color, #2481cc);
-        --button-text: var(--tg-theme-button-text-color, #ffffff);
-        --sec-bg: var(--tg-theme-secondary-bg-color, #f4f4f6);
-    }
-    
-    * {
-        box-sizing: border-box;
-        transition: background-color 0.3s ease, color 0.3s ease;
-    }
-
-    body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        background-color: var(--bg-color);
-        color: var(--text-color);
-        margin: 0; 
-        padding: 20px;
-        -webkit-user-select: none; 
-        user-select: none;
-        -webkit-font-smoothing: antialiased;
-    }
-
-    h2 { 
-        font-size: 24px; 
-        font-weight: 700;
-        margin-top: 10px;
-        margin-bottom: 24px; 
-        text-align: center; 
-        letter-spacing: -0.5px;
-    }
-
-    .rooms-container { 
-        display: grid; 
-        grid-template-columns: 1fr;
-        gap: 16px; 
-    }
-
-    /* Адаптивность для ПК версий Telegram */
-    @media (min-width: 480px) {
-        .rooms-container {
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        /* Современные CSS переменные, намертво связанные с темой Telegram */
+        :root {
+            --bg-color: var(--tg-theme-bg-color, #ffffff);
+            --text-color: var(--tg-theme-text-color, #222222);
+            --hint-color: var(--tg-theme-hint-color, #8e8e93);
+            --link-color: var(--tg-theme-link-color, #2481cc);
+            --button-color: var(--tg-theme-button-color, #2481cc);
+            --button-text: var(--tg-theme-button-text-color, #ffffff);
+            --sec-bg: var(--tg-theme-secondary-bg-color, #f4f4f6);
         }
-    }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0; padding: 0;
+        }
 
-    .room-card {
-        background-color: var(--sec-bg);
-        border-radius: 16px; 
-        padding: 20px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-        display: flex; 
-        flex-direction: column; 
-        position: relative;
-        border: 1px solid rgba(0, 0, 0, 0.04);
-        transform: translateY(0);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 20px;
+            -webkit-user-select: none; user-select: none;
+        }
 
-    .room-card:active {
-        transform: translateY(2px);
-    }
+        h2 { 
+            font-size: 22px; 
+            font-weight: 700;
+            margin-bottom: 20px; 
+            text-align: center; 
+        }
 
-    .room-title { 
-        font-weight: 700; 
-        font-size: 19px; 
-        margin: 0 0 6px 0; 
-        max-width: 75%; 
-        line-height: 1.3;
-    }
+        .rooms-container { 
+            display: flex;
+            flex-direction: column;
+            gap: 12px; 
+        }
 
-    .room-meta { 
-        font-size: 12px; 
-        color: var(--hint-color); 
-        font-family: monospace;
-    }
+        .room-card {
+            background-color: var(--sec-bg);
+            border-radius: 14px; 
+            padding: 16px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.02);
+            display: flex; 
+            flex-direction: column; 
+            position: relative;
+        }
 
-    .badge {
-        position: absolute; 
-        top: 20px; 
-        right: 20px;
-        background-color: var(--link-color); 
-        color: var(--button-text);
-        padding: 5px 10px; 
-        border-radius: 30px; 
-        font-size: 12px; 
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-    }
+        .room-title { 
+            font-weight: 700; 
+            font-size: 18px; 
+            margin-bottom: 4px;
+            max-width: 75%; 
+        }
 
-    .btn {
-        background-color: var(--button-color); 
-        color: var(--button-text);
-        border: none; 
-        border-radius: 10px; 
-        padding: 12px; 
-        margin-top: 18px;
-        font-size: 15px; 
-        font-weight: 600; 
-        cursor: pointer; 
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        transition: opacity 0.15s ease, transform 0.1s ease;
-    }
+        .room-meta { 
+            font-size: 12px; 
+            color: var(--hint-color); 
+        }
 
-    .btn:active { 
-        opacity: 0.85; 
-        transform: scale(0.98);
-    }
+        .badge {
+            position: absolute; 
+            top: 16px; 
+            right: 16px;
+            background-color: var(--link-color); 
+            color: var(--button-text);
+            padding: 4px 8px; 
+            border-radius: 20px; 
+            font-size: 12px; 
+            font-weight: bold;
+        }
 
-    .empty-state { 
-        text-align: center; 
-        color: var(--hint-color); 
-        margin-top: 60px; 
-        font-size: 16px;
-        line-height: 1.5;
-    }
+        .btn {
+            background-color: var(--button-color); 
+            color: var(--button-text);
+            border: none; 
+            border-radius: 10px; 
+            padding: 12px; 
+            margin-top: 14px;
+            font-size: 15px; 
+            font-weight: 600; 
+            cursor: pointer; 
+        }
+
+        .btn:active { 
+            opacity: 0.85; 
+        }
+
+        .empty-state { 
+            text-align: center; 
+            color: var(--hint-color); 
+            margin-top: 60px; 
+            font-size: 15px;
+        }
     </style>
 </head>
 <body>
-    <h2>🎭 Доступные комнаты</h2>
+
+    <h2>🎭 Игровые комнаты</h2>
     <div id="rooms-list" class="rooms-container">
-        <div class="empty-state">Загрузка комнат...</div>
+        <div class="empty-state">Синхронизация с сервером...</div>
     </div>
 
     <script>
+        // Инициализируем Telegram WebApp API
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
 
-        async function fetchRooms() {
+        // Запрашиваем данные напрямую у бэкенда через безопасный fetch
+        async function renderApp() {
             const listDiv = document.getElementById('rooms-list');
             try {
+                // Используем правильный абсолютный адрес вашего API
                 const response = await fetch('https://aningroupbot-v1-2.onrender.com/api/get_rooms');
-                if (!response.ok) {
-                    throw new Error(`Статус сервера: ${response.status}`);
-                }
-                const data = await response.json();
+                if (!response.ok) throw new Error("Ошибка получения списка");
                 
-                listDiv.innerHTML = ''; 
-                
-                if (!data || data.length === 0) {
-                    listDiv.innerHTML = '<div class="empty-state">🎭 Активных комнат пока нет.<br>Создайте первую через команды бота!</div>';
+                const rooms = await response.json();
+                listDiv.innerHTML = ''; // Очищаем экран от загрузки
+
+                if (!rooms || rooms.length === 0) {
+                    listDiv.innerHTML = '<div class="empty-state">Активных чатов пока нет.<br>Создайте первый через команды бота!</div>';
                     return;
                 }
-        
-                data.forEach(room => {
+
+                // Перебираем комнаты и выводим их карточки
+                rooms.forEach(room => {
                     const card = document.createElement('div');
                     card.className = 'room-card';
                     card.innerHTML = `
                         <div class="badge">👥 ${room.members_count}</div>
                         <p class="room-title">${room.has_password ? '🔒' : '🔓'} ${room.name}</p>
                         <div class="room-meta">ID: ${room.id}</div>
-                        <button class="btn" onclick="sendJoin('${room.name}')">Войти в комнату</button>
+                        <button class="btn" onclick="joinRoom('${room.name}')">Войти через бота</button>
                     `;
                     listDiv.appendChild(card);
                 });
+
             } catch (error) {
-                // Выводим точную ошибку прямо на экран телефона для отладки
-                listDiv.innerHTML = `<div class="empty-state" style="color:#ff3b30;">❌ Ошибка загрузки:<br>${error.message}</div>`;
+                listDiv.innerHTML = `<div class="empty-state" style="color:var(--tg-theme-destructive-text-color, #ff3b30);">❌ Ошибка соединения с ботом.</div>`;
             }
         }
 
-
-        async function sendJoin(roomName) {
-            // Безопасно вытаскиваем ID юзера из контекста Telegram Telegram WebApp
+        // Функция входа в комнату
+        async function joinRoom(roomName) {
             const user = tg.initDataUnsafe?.user;
             if (!user || !user.id) {
-                alert("Ошибка: Не удалось определить ваш Telegram ID внутри Mini App.");
+                alert("Ошибка авторизации Telegram.");
                 return;
             }
 
@@ -191,16 +166,17 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    tg.close(); // Закрываем Mini App, юзер увидит сообщение от бота в чате
+                    tg.close(); // Закрываем шторку, бот пришлет сообщение в чат
                 } else {
-                    alert("Ошибка: " + result.error);
+                    alert(result.error);
                 }
             } catch (e) {
-                alert("Ошибка отправки запроса на сервер.");
+                alert("Ошибка отправки запроса.");
             }
         }
 
-        window.onload = fetchRooms;
+        // Стартуем отрисовку сразу после загрузки страницы
+        window.onload = renderApp;
     </script>
 </body>
 </html>
