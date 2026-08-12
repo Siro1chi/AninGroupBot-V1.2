@@ -60,7 +60,7 @@
         async function fetchRooms() {
             const listDiv = document.getElementById('rooms-list');
             try {
-                const response = await fetch('/api/get_rooms');
+                const response = await fetch('https://aningroupbot-v1-2.onrender.com/api/get_rooms');
                 if (!response.ok) {
                     throw new Error(`Статус сервера: ${response.status}`);
                 }
@@ -100,7 +100,7 @@
             }
 
             try {
-                const response = await fetch('/api/join_room', {
+                const response = await fetch('https://aningroupbot-v1-2.onrender.com/api/join_room', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_id: user.id, room_name: roomName })
