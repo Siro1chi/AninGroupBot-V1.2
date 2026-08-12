@@ -459,6 +459,42 @@ async def get_rooms_api(request):
             data.append({"id": rid, "name": r["name"], "has_password": r["password_hash"] is not None, "members_count": len(r["members"])})
     return web.json_response(data)
 
+# НОВЫЙ ЭНДПОИНТ: Обработка входа через веб-интерфейс Mini App
+async def join_room_api(request):
+    try:
+        body = await request.json()
+        user_id = int(body.get("user_id"))
+        room_name = body.get("room_name")
+        
+        async with lock:
+            target = find_room_by_name(room_name)
+            if not target:
+                return web.json_response({"success": False, "error": f"Комната '{room_name}' не найдена"})
+            
+            rid, room = target
+            # Если у комнаты есть пароль, через простой список пускать нельзя (нужно слать в чат)
+            if room["password_hash"]:
+                try:
+                    await bot.send_message(user_id, f"🔒 Комната '{room_name}' защищена паролем. Войдите через команду чата:\n`/join {room_name} <пароль>`", parse_mode="Markdown")
+                except Exception:
+                    pass
+                return web.json_response({"success": False, "error": "Эта комната под паролем. Инструкция отправлена в бот."})
+
+            if user_id in user_room and user_room[user_id] != rid:
+                await remove_user_from_members(user_id, user_room[user_id])
+                del user_room[user_id]
+                
+            user_room[user_id] = rid
+            
+        try:
+            await bot.send_message(user_id, f"✅ Вы успешно вошли в комнату '{room_name}' через Mini App!\nУстановите имя: /setname")
+        except Exception:
+            pass
+            
+        return web.json_response({"success": True})
+    except Exception as e:
+        return web.json_response({"success": False, "error": str(e)})
+
 async def webapp_page(request):
     try:
         with open("index.html", "r", encoding="utf-8") as f:
@@ -473,6 +509,7 @@ async def start_web_server():
     app.router.add_get('/health', health_check)
     app.router.add_get('/webapp', webapp_page)
     app.router.add_get('/api/get_rooms', get_rooms_api)
+    app.router.add_post('/api/join_room', join_room_api) # Регистрируем POST эндпоинт
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, '0.0.0.0', PORT)
