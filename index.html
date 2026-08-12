@@ -61,14 +61,18 @@
             const listDiv = document.getElementById('rooms-list');
             try {
                 const response = await fetch('/api/get_rooms');
+                if (!response.ok) {
+                    throw new Error(`Статус сервера: ${response.status}`);
+                }
                 const data = await response.json();
                 
-                listDiv.innerHTML = '';
-                if(data.length === 0) {
-                    listDiv.innerHTML = '<div class="empty-state">Активных игровых чатов пока нет.<br>Создайте первый через команды бота!</div>';
+                listDiv.innerHTML = ''; 
+                
+                if (!data || data.length === 0) {
+                    listDiv.innerHTML = '<div class="empty-state">🎭 Активных комнат пока нет.<br>Создайте первую через команды бота!</div>';
                     return;
                 }
-
+        
                 data.forEach(room => {
                     const card = document.createElement('div');
                     card.className = 'room-card';
@@ -81,9 +85,11 @@
                     listDiv.appendChild(card);
                 });
             } catch (error) {
-                listDiv.innerHTML = '<div class="empty-state" style="color:red;">Ошибка связи с сервером бота.</div>';
+                // Выводим точную ошибку прямо на экран телефона для отладки
+                listDiv.innerHTML = `<div class="empty-state" style="color:#ff3b30;">❌ Ошибка загрузки:<br>${error.message}</div>`;
             }
         }
+
 
         async function sendJoin(roomName) {
             // Безопасно вытаскиваем ID юзера из контекста Telegram Telegram WebApp
