@@ -1,98 +1,158 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Управление комнатами</title>
-    <script src="https://telegram.org"></script>
-    <style>
-        :root {
-            --bg-color: var(--tg-theme-bg-color, #ffffff);
-            --text-color: var(--tg-theme-text-color, #222222);
-            --hint-color: var(--tg-theme-hint-color, #8e8e93);
-            --link-color: var(--tg-theme-link-color, #2481cc);
-            --button-color: var(--tg-theme-button-color, #2481cc);
-            --button-text: var(--tg-theme-button-text-color, #ffffff);
-            --sec-bg: var(--tg-theme-secondary-bg-color, #f4f4f6);
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0; padding: 16px;
-            -webkit-user-select: none; user-select: none;
-        }
-        h2 { font-size: 22px; margin-bottom: 20px; text-align: center; }
-        .rooms-container { display: flex; flex-direction: column; gap: 12px; }
-        .room-card {
-            background-color: var(--sec-bg);
-            border-radius: 12px; padding: 16px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.02);
-            display: flex; flex-direction: column; position: relative;
-        }
-        .room-title { font-weight: bold; font-size: 18px; margin: 0 0 4px 0; max-width: 80%; }
-        .room-meta { font-size: 13px; color: var(--hint-color); }
-        .badge {
-            position: absolute; top: 16px; right: 16px;
-            background-color: var(--link-color); color: var(--button-text);
-            padding: 4px 8px; border-radius: 20px; font-size: 12px; font-weight: bold;
-        }
-        .btn {
-            background-color: var(--button-color); color: var(--button-text);
-            border: none; border-radius: 8px; padding: 10px; margin-top: 14px;
-            font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity 0.2s;
-        }
-        .btn:active { opacity: 0.8; }
-        .empty-state { text-align: center; color: var(--hint-color); margin-top: 40px; }
-    </script>
-</head>
-<body>
-    <h2>🎭 Доступные комнаты</h2>
-    <div id="rooms-list" class="rooms-container">
-        <!-- Комнаты генерируются через JS -->
-    </div>
+# ========== Обработка анонимных сообщений (Медиа + Реплаи) ==========
+@dp.message(F.text | F.photo | F.sticker | F.voice | F.video | F.video_note | F.animation | F.document | F.audio)
+async def handle_chat_message(message: Message):
+    user_id = message.from_user.id
+    async with lock:
+        if user_id not in user_room:
+            return
+        rid = user_room[user_id]
+        room = rooms.get(rid)
+        if not room or user_id not in room["members"] or user_id not in room["names"]:
+            return
+        name = room["names"][user_id]
+        members_copy = room["members"].copy()
+        alone = len(members_copy) == 1
 
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand();
+    if alone:
+        await message.answer("⚠️ В комнате никого нет, сообщение никто не увидит")
+        return
 
-        async function fetchRooms() {
-            const listDiv = document.getElementById('rooms-list');
-            try {
-                const response = await fetch('/api/get_rooms');
-                const data = await response.json();
+    reply_prefix = ""
+    if message.reply_to_message:
+        orig_msg_id = message.reply_to_message.message_id
+        if orig_msg_id in message_mappings:
+            reply_prefix = f"↪️ <i>В ответ {message_mappings[orig_msg_id]['author_name']}:</i>\n"
+        else:
+            reply_prefix = f"↪️ <i>В ответ анониму:</i>\n"
+
+    async def send_to_member(mid, msg: Message, author_name: str, prefix: str):
+        try:
+            sent_msg = None
+            if msg.text:
+                sent_msg = await bot.send_message(mid, f"🎭 <b>{author_name}</b>:\n{prefix}{msg.text}", parse_mode="HTML")
+            elif msg.photo:
+                cap = f"🎭 {author_name}\n" + prefix + (msg.caption if msg.caption else "")
+                sent_msg = await bot.send_photo(mid, msg.photo[-1].file_id, caption=cap, parse_mode="HTML")
+            elif msg.voice:
+                cap = f"🎭 {author_name}\n" + prefix + "🗣 [Голосовое сообщение]"
+                sent_msg = await bot.send_voice(mid, msg.voice.file_id, caption=cap, parse_mode="HTML")
+            elif msg.video:
+                cap = f"🎭 {author_name}\n" + prefix + (msg.caption if msg.caption else "")
+                sent_msg = await bot.send_video(mid, msg.video.file_id, caption=cap, parse_mode="HTML")
+            elif msg.video_note:
+                await bot.send_message(mid, f"🎭 <b>{author_name}</b> видеосообщение:\n{prefix}", parse_mode="HTML")
+                sent_msg = await bot.send_video_note(mid, msg.video_note.file_id)
+            elif msg.document:
+                cap = f"🎭 {author_name}\n" + prefix + (msg.caption if msg.caption else "")
+                sent_msg = await bot.send_document(mid, msg.document.file_id, caption=cap, parse_mode="HTML")
+            elif msg.audio:
+                cap = f"🎭 {author_name}\n" + prefix + (msg.caption if msg.caption else "")
+                sent_msg = await bot.send_audio(mid, msg.audio.file_id, caption=cap, parse_mode="HTML")
+            elif msg.sticker or msg.animation:
+                type_name = "стикер" if msg.sticker else "анимацию"
+                await bot.send_message(mid, f"🎭 <b>{author_name}</b> отправил(а) {type_name}:\n{prefix}", parse_mode="HTML")
+                if msg.sticker:
+                    sent_msg = await bot.send_sticker(mid, msg.sticker.file_id)
+                else:
+                    sent_msg = await bot.send_animation(mid, msg.animation.file_id)
+            
+            if sent_msg:
+                message_mappings[sent_msg.message_id] = {"author_id": user_id, "author_name": author_name}
+        except Exception as e:
+            logger.error(f"Ошибка пересылки для {mid}: {e}")
+
+    tasks = [send_to_member(mid, message, name, reply_prefix) for mid in members_copy if mid != user_id]
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+# ========== Веб-сервер API и Запуск ==========
+async def health_check(request):
+    return web.Response(text="OK")
+
+async def get_rooms_api(request):
+    async with lock:
+        data = []
+        for rid, r in rooms.items():
+            data.append({"id": rid, "name": r["name"], "has_password": r["password_hash"] is not None, "members_count": len(r["members"])})
+    return web.json_response(data)
+
+# НОВЫЙ ЭНДПОИНТ: Обработка входа через веб-интерфейс Mini App
+async def join_room_api(request):
+    try:
+        body = await request.json()
+        user_id = int(body.get("user_id"))
+        room_name = body.get("room_name")
+        
+        async with lock:
+            target = find_room_by_name(room_name)
+            if not target:
+                return web.json_response({"success": False, "error": f"Комната '{room_name}' не найдена"})
+            
+            rid, room = target
+            # Если у комнаты есть пароль, через простой список пускать нельзя (нужно слать в чат)
+            if room["password_hash"]:
+                try:
+                    await bot.send_message(user_id, f"🔒 Комната '{room_name}' защищена паролем. Войдите через команду чата:\n`/join {room_name} <пароль>`", parse_mode="Markdown")
+                except Exception:
+                    pass
+                return web.json_response({"success": False, "error": "Эта комната под паролем. Инструкция отправлена в бот."})
+
+            if user_id in user_room and user_room[user_id] != rid:
+                await remove_user_from_members(user_id, user_room[user_id])
+                del user_room[user_id]
                 
-                listDiv.innerHTML = '';
-                if(data.length === 0) {
-                    listDiv.innerHTML = '<div class="empty-state">Активных игровых чатов пока нет.<br>Создайте первый через команды бота!</div>';
-                    return;
-                }
+            user_room[user_id] = rid
+            
+        try:
+            await bot.send_message(user_id, f"✅ Вы успешно вошли в комнату '{room_name}' через Mini App!\nУстановите имя: /setname")
+        except Exception:
+            pass
+            
+        return web.json_response({"success": True})
+    except Exception as e:
+        return web.json_response({"success": False, "error": str(e)})
 
-                data.forEach(room => {
-                    const card = document.createElement('div');
-                    card.className = 'room-card';
-                    card.innerHTML = `
-                        <div class="badge">👥 ${room.members_count}</div>
-                        <p class="room-title">${room.has_password ? '🔒' : '🔓'} ${room.name}</p>
-                        <div class="room-meta">ID: ${room.id}</div>
-                        <button class="btn" onclick="sendJoin('${room.name}')">Войти в комнату</button>
-                    `;
-                    listDiv.appendChild(card);
-                });
-            } catch (error) {
-                listDiv.innerHTML = '<div class="empty-state" style="color:red;">Ошибка связи с сервером бота.</div>';
-            }
-        }
+async def webapp_page(request):
+    try:
+        with open("index.html", "r", encoding="utf-8") as f:
+            html = f.read()
+        return web.Response(text=html, content_type='text/html')
+    except Exception as e:
+        return web.Response(text=f"Ошибка: {e}", status=500)
 
-        function sendJoin(roomName) {
-            // Отправляет команду /join обратно в чат с ботом и закрывает Mini App
-            tg.sendData(`/join ${roomName}`);
-            tg.close();
-        }
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get('/', health_check)
+    app.router.add_get('/health', health_check)
+    app.router.add_get('/webapp', webapp_page)
+    app.router.add_get('/api/get_rooms', get_rooms_api)
+    app.router.add_post('/api/join_room', join_room_api) # Регистрируем POST эндпоинт
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', PORT)
+    await site.start()
+    logger.info(f"Сервер развернут на порту {PORT}")
 
-        // Запуск при открытии
-        window.onload = fetchRooms;
-    </script>
-</body>
-</html>
+async def clean_empty_rooms():
+    while True:
+        await asyncio.sleep(3600)
+        async with lock:
+            to_delete = [rid for rid, room in rooms.items() if not room["members"]]
+            for rid in to_delete:
+                del rooms[rid]
+            if to_delete:
+                save_rooms()
+
+async def main():
+    global rooms
+    rooms = load_rooms()
+    await start_web_server()
+    asyncio.create_task(clean_empty_rooms())
+    logger.info("Бот запущен")
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Бот остановлен")
