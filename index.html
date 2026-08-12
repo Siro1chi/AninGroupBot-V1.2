@@ -6,44 +6,127 @@
     <title>Управление комнатами</title>
     <script src="https://telegram.org"></script>
     <style>
-        :root {
-            --bg-color: var(--tg-theme-bg-color, #ffffff);
-            --text-color: var(--tg-theme-text-color, #222222);
-            --hint-color: var(--tg-theme-hint-color, #8e8e93);
-            --link-color: var(--tg-theme-link-color, #2481cc);
-            --button-color: var(--tg-theme-button-color, #2481cc);
-            --button-text: var(--tg-theme-button-text-color, #ffffff);
-            --sec-bg: var(--tg-theme-secondary-bg-color, #f4f4f6);
+    :root {
+        --bg-color: var(--tg-theme-bg-color, #ffffff);
+        --text-color: var(--tg-theme-text-color, #222222);
+        --hint-color: var(--tg-theme-hint-color, #8e8e93);
+        --link-color: var(--tg-theme-link-color, #2481cc);
+        --button-color: var(--tg-theme-button-color, #2481cc);
+        --button-text: var(--tg-theme-button-text-color, #ffffff);
+        --sec-bg: var(--tg-theme-secondary-bg-color, #f4f4f6);
+    }
+    
+    * {
+        box-sizing: border-box;
+        transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        margin: 0; 
+        padding: 20px;
+        -webkit-user-select: none; 
+        user-select: none;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    h2 { 
+        font-size: 24px; 
+        font-weight: 700;
+        margin-top: 10px;
+        margin-bottom: 24px; 
+        text-align: center; 
+        letter-spacing: -0.5px;
+    }
+
+    .rooms-container { 
+        display: grid; 
+        grid-template-columns: 1fr;
+        gap: 16px; 
+    }
+
+    /* Адаптивность для ПК версий Telegram */
+    @media (min-width: 480px) {
+        .rooms-container {
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
         }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0; padding: 16px;
-            -webkit-user-select: none; user-select: none;
-        }
-        h2 { font-size: 22px; margin-bottom: 20px; text-align: center; }
-        .rooms-container { display: flex; flex-direction: column; gap: 12px; }
-        .room-card {
-            background-color: var(--sec-bg);
-            border-radius: 12px; padding: 16px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.02);
-            display: flex; flex-direction: column; position: relative;
-        }
-        .room-title { font-weight: bold; font-size: 18px; margin: 0 0 4px 0; max-width: 80%; }
-        .room-meta { font-size: 13px; color: var(--hint-color); }
-        .badge {
-            position: absolute; top: 16px; right: 16px;
-            background-color: var(--link-color); color: var(--button-text);
-            padding: 4px 8px; border-radius: 20px; font-size: 12px; font-weight: bold;
-        }
-        .btn {
-            background-color: var(--button-color); color: var(--button-text);
-            border: none; border-radius: 8px; padding: 10px; margin-top: 14px;
-            font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity 0.2s;
-        }
-        .btn:active { opacity: 0.8; }
-        .empty-state { text-align: center; color: var(--hint-color); margin-top: 40px; }
+    }
+
+    .room-card {
+        background-color: var(--sec-bg);
+        border-radius: 16px; 
+        padding: 20px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+        display: flex; 
+        flex-direction: column; 
+        position: relative;
+        border: 1px solid rgba(0, 0, 0, 0.04);
+        transform: translateY(0);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .room-card:active {
+        transform: translateY(2px);
+    }
+
+    .room-title { 
+        font-weight: 700; 
+        font-size: 19px; 
+        margin: 0 0 6px 0; 
+        max-width: 75%; 
+        line-height: 1.3;
+    }
+
+    .room-meta { 
+        font-size: 12px; 
+        color: var(--hint-color); 
+        font-family: monospace;
+    }
+
+    .badge {
+        position: absolute; 
+        top: 20px; 
+        right: 20px;
+        background-color: var(--link-color); 
+        color: var(--button-text);
+        padding: 5px 10px; 
+        border-radius: 30px; 
+        font-size: 12px; 
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn {
+        background-color: var(--button-color); 
+        color: var(--button-text);
+        border: none; 
+        border-radius: 10px; 
+        padding: 12px; 
+        margin-top: 18px;
+        font-size: 15px; 
+        font-weight: 600; 
+        cursor: pointer; 
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        transition: opacity 0.15s ease, transform 0.1s ease;
+    }
+
+    .btn:active { 
+        opacity: 0.85; 
+        transform: scale(0.98);
+    }
+
+    .empty-state { 
+        text-align: center; 
+        color: var(--hint-color); 
+        margin-top: 60px; 
+        font-size: 16px;
+        line-height: 1.5;
+    }
     </style>
 </head>
 <body>
